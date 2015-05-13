@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html>
+<head>
+<div id="container">
+<div id="cnvsFrame">
+    <canvas id="cnvs"> </canvas>
+</div>
+</div>
+<img src="images/hw5/p1.jpg" class="flc" onclick="javascript:tst(1);" />
+<img src="images/hw5/p2.jpg" class="flc" onclick="javascript:tst(2);" />
+<img src="images/hw5/p3.jpg" class="flc" onclick="javascript:tst(3);" />
+<img src="images/hw5/p4.jpg" class="flc" onclick="javascript:tst(4);" />
+<button type = "buttom "id="save" onclick="javasript:doSave()">S A V E</button>
+<button id="save" onclick="javacript:doLoad()">L O A D</button>
+<button id="save" onclick="javacript:doClear()">CLEAR DATA</button>
+<div style="clear:both"></div>
+<style>
+#container {
+    width:70%;
+    float:left;
+	margin-top: 5px;
+}
+#cnvsFrame {
+    height: 0;
+    padding-bottom:100%;
+}
+.flc {
+    float:left;
+	margin: 5px;
+	margin-left: 20px;
+    width:13%;
+}
+body {
+    overflow: hidden;
+}
+#save{
+	width:13%;
+	height: 50px;
+	margin: 25px;
+	float: left;
+}
+</style>
+</head>
+<body> 
+<script src="js/three.min.js"></script>
+<script src="js/OrbitControls.js"></script>
+<script src="js/KeyboardState.js"></script>
+<script src="js/FileSaver.min.js"></script>
+<script>
+
+var renderer, camera, scene, light, width, height;
+var controls, keyboard = new KeyboardState(), raycaster, mouse = new THREE.Vector2();
+var savebtn = document.getElementById("save"), loadbtn;
+var wall1, wall2, wall3, pics = [], pic1, pic2, pic3, pic4, count = 0;
+var pictex1, pictex2, pictex3, pictex4;
+var pickables = [], btnpick = [], theCanvas, theCanvasFrame;
+var tex = [], picktex = [];
+
+init();
+animate();
+
+function init(){
+	//initHUD();
+	
+	theCanvas = document.getElementById("cnvs");
+    theCanvasFrame = document.getElementById("cnvsFrame");
+
+	width = theCanvasFrame.clientWidth;
+    height = theCanvasFrame.clientHeight;
+	
+	renderer = new THREE.WebGLRenderer({canvas: theCanvas,antialias: true});
+	renderer.setSize (width, height);
+	renderer.setClearColor (0x777777);
+	
+	scene = new THREE.Scene();
+	
+	var floormap = THREE.ImageUtils.loadTexture('images/hw5/floor.jpg');
+	var floorbump = THREE.ImageUtils.loadTexture('images/hw5/floorbump.jpg');
+	floormap.wrapS = floormap.wrapT = THREE.RepeatWrapping;
+	floormap.repeat.set( 6, 6 );
+	floorbump.wrapS = floorbump.wrapT = THREE.RepeatWrapping;
+	floorbump.repeat.set( 6, 6 );
+	var floormaterial = new THREE.MeshPhongMaterial({map: floormap});
+	var floor = new THREE.Mesh(new THREE.PlaneGeometry(300,300,130,130), floormaterial);
+	floormaterial.bumpMap = floorbump;
+	floormaterial.bumpScale = 0.8;
+	floor.rotation.x = -Math.PI/2;
+
+	scene.add(floor);
+	
+	wall();
+	
+	pictex1 = THREE.ImageUtils.loadTexture('images/hw5/p1.jpg');
+	pictex2 = THREE.ImageUtils.loadTexture('images/hw5/p2.jpg');
+	pictex3 = THREE.ImageUtils.loadTexture('images/hw5/p3.jpg');
+	pictex4 = THREE.ImageUtils.loadTexture('images/hw5/p4.jpg');
+	picktex = [pictex1, pictex2, pictex3, pictex4];
+	
+	pic1 = new THREE.Mesh(
+    new THREE.BoxGeometry(20, 15, 1),
+    new THREE.MeshLambertMaterial({
+        color: 0xffffff,
+        polygonOffset: true,
+        polygonOffsetUnits: -4.0,
+        polygonOffsetFactor: -1.0,
+    }));
+	pic2 = new THREE.Mesh(
+    new THREE.BoxGeometry(20, 15, 1),
+    new THREE.MeshLambertMaterial({
+        color: 0xffffff,
+        polygonOffset: true,
+        polygonOffsetUnits: -4.0,
+        polygonOffsetFactor: -1.0,
+    }));
+	pic3 = new THREE.Mesh(
+    new THREE.BoxGeometry(20, 15, 1),
+    new THREE.MeshLambertMaterial({
+        color: 0xffffff,
+        polygonOffset: true,
+        polygonOffsetUnits: -4.0,
+        polygonOffsetFactor: -1.0,
+    }));
+	pic4 = new THREE.Mesh(
+    new THREE.BoxGeometry(20, 15, 1),
+    new THREE.MeshLambertMaterial({
+        color: 0xffffff,
+        polygonOffset: true,
+        polygonOffsetUnits: -4.0,
+        polygonOffsetFactor: -1.0,
+    }));
+	
+	pic = [pic1, pic2, pic3, pic4];
+	pic[0].position.set(999,999,999);
+	pic[1].position.set(999,999,999);
+	pic[2].position.set(999,999,999);
+	pic[3].position.set(999,999,999);
+    scene.add(pic[0]); scene.add(pic[1]); scene.add(pic[2]); scene.add(pic[3]);
+	
+	pickables = [wall1, wall2, wall3];
+	
+	camera = new THREE.PerspectiveCamera (45, width/height, 1, 10000);
+	camera.position.y = 30;
+	camera.position.z = 100;
+	camera.lookAt (new THREE.Vector3(0,0,0));
+	scene.add(camera);
+	
+	
+	light = new THREE.SpotLight (0xffffff,1.5);
+	light.exponent = 10;
+	light.position.set (0, 200, 200);
+	scene.add (light);
+	light.target = wall1;
+	
+	light.castShadow = true;
+    light.shadowMapWidth = 1024;
+    light.shadowMapHeight = 1024;
+    light.shadowCameraNear = 10;
+    light.shadowCameraFar = 4000;
+    light.shadowCameraFov = light.angle/Math.PI*180;
+	
+	renderer.shadowMapEnabled = true;
+    renderer.shadowMapType = THREE.PCFShadowMap;
+	floor.receiveShadow = true; wall1.castShadow = true; wall2.castShadow = true; wall3.castShadow = true;
+	
+	var ambientLight = new THREE.AmbientLight (0x000000);
+	scene.add(ambientLight);
+	
+	controls = new THREE.OrbitControls (camera, renderer.domElement);
+	//document.body.appendChild (renderer.domElement);
+	renderer.autoClear = false;
+	
+	raycaster = new THREE.Raycaster();
+	raycaster2 = new THREE.Raycaster();
+    document.addEventListener('mousedown', onDocumentMouseDown, false);
+    document.addEventListener('mousemove', onDocumentMouseMove, false);
+	
+	window.addEventListener ('resize', onWindowResize, false);
+}
+
+function doSave(){
+	var objpos = [pic[0].position, pic[1].position, pic[2].position, pic[3].position];
+	var objrot = [pic[0].rotation, pic[1].rotation, pic[2].rotation, pic[3].rotation];
+	var objtex = tex;
+	var objStr = JSON.stringify(objpos);
+	var objStr2 = JSON.stringify(objrot);
+	var objStr3 = JSON.stringify(objtex);
+	localStorage.setItem("picpos", objStr);
+	localStorage.setItem("picrot", objStr2);
+	localStorage.setItem("pictex", objStr3);
+	alert("Save success!");
+
+}
+
+function doLoad(){
+	var objStr = localStorage.getItem("picpos");
+	var objStr2 = localStorage.getItem("picrot");
+	var objStr3 = localStorage.getItem("pictex");
+	var Picpos = JSON.parse(objStr);
+	var Picrot = JSON.parse(objStr2);
+	var Pictex = JSON.parse(objStr3);
+	
+	try{
+		pic[0].position.copy(Picpos[0]); pic[0].rotation.copy(Picrot[0]); pic[0].material.map = picktex[Pictex[0]];
+		pic[1].position.copy(Picpos[1]); pic[1].rotation.copy(Picrot[1]); pic[1].material.map = picktex[Pictex[1]];
+		pic[2].position.copy(Picpos[2]); pic[2].rotation.copy(Picrot[2]); pic[2].material.map = picktex[Pictex[2]];
+		pic[3].position.copy(Picpos[3]); pic[3].rotation.copy(Picrot[3]); pic[3].material.map = picktex[Pictex[3]];	
+		alert("Load Success!");}
+	catch(e){
+		alert("No data.");
+	}
+	count = 4;
+}
+
+function doClear(){
+	localStorage.removeItem("picpos");
+	localStorage.removeItem("pictex");	
+	pic[0].position.set(999,999,999);
+	pic[1].position.set(999,999,999);
+	pic[2].position.set(999,999,999);
+	pic[3].position.set(999,999,999);
+	count = 0;
+	alert("Data Remove.");
+}
+
+function wall(){
+	wall1 = new THREE.Mesh(new THREE.BoxGeometry(70,50,2), new THREE.MeshLambertMaterial({map: THREE.ImageUtils.loadTexture('images/hw5/wall.jpg')}));
+	wall2 = wall1.clone();
+	wall3 = wall1.clone();
+	
+	//walls.rotation.x = -1;
+	wall1.position.set(0,25,-63);
+	wall2.position.set(70,25,-45);
+	wall2.rotation.y = -Math.PI/6;
+	wall3.position.set(-70,25,-45);
+	wall3.rotation.y = Math.PI/6;
+	
+	scene.add(wall1);
+	scene.add(wall2);
+	scene.add(wall3);
+}
+
+function tst(which){
+	if(which == 1){
+				pic[count].material = new THREE.MeshLambertMaterial({
+											map: pictex1,
+											side: THREE.DoubleSide,
+											polygonOffset: true,
+											polygonOffsetUnits: -4.0,
+											polygonOffsetFactor: -1.0,
+										});
+				tex[count] = 0;
+	}
+	else if(which == 2){
+				pic[count].material = new THREE.MeshLambertMaterial({
+											map: pictex2,
+											side: THREE.DoubleSide,
+											polygonOffset: true,
+											polygonOffsetUnits: -4.0,
+											polygonOffsetFactor: -1.0,
+										});
+				tex[count] = 1;
+	}									
+	else if(which == 3){
+				pic[count].material = new THREE.MeshLambertMaterial({
+											map: pictex3,
+											side: THREE.DoubleSide,
+											polygonOffset: true,
+											polygonOffsetUnits: -4.0,
+											polygonOffsetFactor: -1.0,
+										});
+				tex[count] = 2;
+	}									
+	else if(which == 4){
+				pic[count].material = new THREE.MeshLambertMaterial({
+											map: pictex4,
+											side: THREE.DoubleSide,
+											polygonOffset: true,
+											polygonOffsetUnits: -4.0,
+											polygonOffsetFactor: -1.0,
+										});
+				tex[count] = 3;
+	}
+}
+
+function onDocumentMouseDown(event) {
+	
+    // PICKING DETAILS: 
+    // convert mouse.xy = [-1,1]^2 (NDC)
+    // unproject (mouse.xy, 1) to a point on the far plane (in world coordinate)
+    // set raycaster (origin, direction)
+    // find intersection objects, (closest first) 
+    // each record as
+    // [ { distance, point, face, faceIndex, object }, ... ]
+
+    event.preventDefault();
+    mouse.x = (event.clientX / theCanvasFrame.clientWidth) * 2 - 1;
+    mouse.y = -(event.clientY / theCanvasFrame.clientHeight) * 2 + 1;
+
+    // find intersections
+    var vector = new THREE.Vector3(mouse.x, mouse.y, 1).unproject(camera);
+    raycaster.set(camera.position, vector.sub(camera.position).normalize());
+    var intersects = raycaster.intersectObjects(pickables);
+    if (intersects.length > 0 && event.clientX <= theCanvasFrame.clientWidth) {
+        debugger;
+        pic[count].position.copy(intersects[0].point);
+        pic[count].rotation.copy (intersects[0].object.rotation);
+		if(count < 4)
+			count += 1;	
+    }
+}
+
+function onDocumentMouseMove(event) {
+    event.preventDefault();
+	
+    mouse.x = (event.clientX / theCanvasFrame.clientWidth) * 2 - 1;
+    mouse.y = -(event.clientY / theCanvasFrame.clientHeight) * 2 + 1;
+    //
+    var vector = new THREE.Vector3(mouse.x, mouse.y, 1).unproject(camera);
+    raycaster.set(camera.position, vector.sub(camera.position).normalize());
+    var intersects = raycaster.intersectObjects(pickables);
+	
+    if (intersects.length > 0 && event.clientX <= theCanvasFrame.clientWidth) {
+        document.body.style.cursor = 'pointer';
+    } else {
+        document.body.style.cursor = 'auto';
+    }
+}
+
+
+function onWindowResize() {
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+    renderer.setSize(width, height);
+}
+
+function animate(){
+	controls.update();
+	
+	requestAnimationFrame(animate); 
+	render(); 
+}
+
+function render(){
+	renderer.clear();
+	renderer.render (scene, camera);
+	renderer.render(sceneHUD, cameraHUD);
+}
+</script>
+</body>
+</html>
