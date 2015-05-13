@@ -67,7 +67,7 @@ function init(){
 	scene.add(ambientLight);
 	controls = new THREE.OrbitControls (camera, renderer.domElement);
 	
-	//light.castShadow = true;
+	light.castShadow = true;
     light.shadowMapWidth = 1024;
     light.shadowMapHeight = 1024;
     light.shadowCameraNear = 10;
